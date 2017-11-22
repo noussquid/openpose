@@ -28,6 +28,16 @@
 // OpenPose dependencies
 #include <openpose/headers.hpp>
 
+// Karli add OSC Support
+#include "../../oscpack/osc/OscOutboundPacketStream.h"
+#include "../../oscpack/ip/UdpSocket.h"
+
+//#define ADDRESS "239.255.0.79"
+#define ADDRESS "127.0.0.1"
+#define PORT 10709
+
+#define OUTPUT_BUFFER_SIZE 1024
+
 // See all the available parameter options withe the `--help` flag. E.g. `build/examples/openpose/openpose.bin --help`
 // Note: This command will show you flags for other unnecessary 3rdparty files. Check only the flags for the OpenPose
 // executable. E.g. for `openpose.bin`, look for `Flags from examples/openpose/openpose.cpp:`.
@@ -172,6 +182,70 @@ DEFINE_string(write_heatmaps,           "",             "Directory to write body
                                                         " must be enabled.");
 DEFINE_string(write_heatmaps_format,    "png",          "File extension and format for `write_heatmaps`, analogous to `write_images_format`."
                                                         " Recommended `png` or any compressed and lossless format.");
+struct UserDatum : public op::Datum
+{
+  bool boolThatUserNeedsForSomeReason;
+
+  UserDatum(const bool boolThatUserNeedsForSomeReason_ = false) :
+    boolThatUserNeedsForSomeReason{boolThatUserNeedsForSomeReason_}
+  {}
+};
+
+// worker class for osc
+class UserOutputClass {
+public:
+
+  void printKeypoints(const std::shared_ptr<std::vector<UserDatum>>& datumsPtr)
+    {
+        // Example: How to use the pose keypoints
+        if (datumsPtr != nullptr && !datumsPtr->empty())
+        {
+            UdpTransmitSocket transmitSocket( IpEndpointName( ADDRESS, PORT ) );
+            char buffer[OUTPUT_BUFFER_SIZE];
+
+            op::log("\nKeypoints:");
+            // Accesing each element of the keypoints
+            const auto& poseKeypoints = datumsPtr->at(0).poseKeypoints;
+            op::log("Person pose keypoints:");
+            for (auto person = 0 ; person < poseKeypoints.getSize(0) ; person++)
+            {
+              osc::OutboundPacketStream p( buffer, OUTPUT_BUFFER_SIZE );
+              std::string personStr;
+              personStr =  "/person/" + std::to_string(person) + "/pos";
+              p << osc::BeginBundleImmediate << osc::BeginMessage(personStr.c_str());
+
+                op::log("Person " + std::to_string(person) + " (x, y, score):");
+                for (auto bodyPart = 0 ; bodyPart < poseKeypoints.getSize(1) ; bodyPart++)
+                {
+                    std::string valueToPrint;
+                    //p << bodyPart;
+
+                    for (auto xyscore = 0 ; xyscore < poseKeypoints.getSize(2) ; xyscore++)
+                    {
+                        valueToPrint += std::to_string(   poseKeypoints[{person, bodyPart, xyscore}]   ) + " ";
+                        p << poseKeypoints[{person, bodyPart, xyscore}];
+                    }
+                    //p << valueToPrint.c_str();
+                    op::log(valueToPrint);
+
+                    /*p << osc::BeginBundleImmediate
+                      << osc::BeginMessage( "/test1" )
+                      << true << 23 << (float)3.1415 << "h" << osc::EndMessage
+                      << osc::BeginMessage( "/test2" )
+                      << true << 24 << (float)10.8 << "w" << osc::EndMessage
+                      << osc::EndBundle;
+                    */
+
+                }
+                p << osc::EndMessage << osc::EndBundle;
+                transmitSocket.Send( p.Data(), p.Size() );
+            }
+            op::log(" ");
+        }
+        else
+            op::log("Nullptr or empty datumsPtr found.", op::Priority::High, __LINE__, __FUNCTION__, __FILE__);
+    }
+};
 
 int openPoseDemo()
 {
@@ -210,7 +284,9 @@ int openPoseDemo()
 
     // OpenPose wrapper
     op::log("Configuring OpenPose wrapper.", op::Priority::Low, __LINE__, __FUNCTION__, __FILE__);
-    op::Wrapper<std::vector<op::Datum>> opWrapper;
+    //Karli op::Wrapper<std::vector<op::Datum>> opWrapper;
+    op::Wrapper<std::vector<UserDatum>> opWrapper{op::ThreadManagerMode::AsynchronousOut};
+
     // Pose configuration (use WrapperStructPose{} for default and recommended configuration)
     const op::WrapperStructPose wrapperStructPose{!FLAGS_body_disable, netInputSize, outputSize, keypointScale,
                                                   FLAGS_num_gpu, FLAGS_num_gpu_start, FLAGS_scale_number,
@@ -254,15 +330,37 @@ int openPoseDemo()
     op::log("Starting thread(s)", op::Priority::High);
     // Option a) Recommended - Also using the main thread (this thread) for processing (it saves 1 thread)
     // Start, run & stop threads
-    opWrapper.exec();  // It blocks this thread until all threads have finished
+
+
+    //Karli Disabble -> opWrapper.exec();  // It blocks this thread until all threads have finished
 
     // // Option b) Keeping this thread free in case you want to do something else meanwhile, e.g. profiling the GPU
     // memory
     // // VERY IMPORTANT NOTE: if OpenCV is compiled with Qt support, this option will not work. Qt needs the main
     // // thread to plot visual results, so the final GUI (which uses OpenCV) would return an exception similar to:
     // // `QMetaMethod::invoke: Unable to invoke methods with return values in queued connections`
-    // // Start threads
-    // opWrapper.start();
+
+    // Start threads
+    opWrapper.start();
+
+
+    // User processing
+    UserOutputClass userOutputClass;
+
+    while (opWrapper.isRunning())
+    {
+
+        // Pop frame
+        std::shared_ptr<std::vector<UserDatum>> datumProcessed;
+        if (opWrapper.waitAndPop(datumProcessed))
+        {
+            //userWantsToExit = userOutputClass.display(datumProcessed);;
+            userOutputClass.printKeypoints(datumProcessed);
+        }
+        else
+            op::log("Processed datum could not be emplaced.", op::Priority::High, __LINE__, __FUNCTION__, __FILE__);
+    }
+
     // // Profile used GPU memory
     //     // 1: wait ~10sec so the memory has been totally loaded on GPU
     //     // 2: profile the GPU memory
@@ -274,8 +372,9 @@ int openPoseDemo()
     // while (opWrapper.isRunning())
     //     std::this_thread::sleep_for(std::chrono::milliseconds{sleepTimeMs});
     // // Stop and join threads
-    // op::log("Stopping thread(s)", op::Priority::High);
-    // opWrapper.stop();
+    op::log("Stopping thread(s)", op::Priority::High);
+
+    opWrapper.stop();
 
     // Measuring total time
     const auto now = std::chrono::high_resolution_clock::now();

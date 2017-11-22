@@ -15,7 +15,7 @@ USE_CUDA := 1
 # ALLOW_LMDB_NOLOCK := 1
 
 # Uncomment if you're using OpenCV 3
-# OPENCV_VERSION := 3
+ OPENCV_VERSION := 3
 
 # To customize your choice of compiler, uncomment and set the following.
 # N.B. the default for Linux is g++ and the default for OSX is clang++
@@ -60,7 +60,7 @@ CAFFE_DIR := 3rdparty/caffe/distribute
 
 # Whatever else you find you need goes here.
 INCLUDE_DIRS := /usr/local/include /usr/include/hdf5/serial
-LIBRARY_DIRS := /usr/local/lib /usr/lib /usr/lib/x86_64-linux-gnu /usr/lib/x86_64-linux-gnu/hdf5/serial
+LIBRARY_DIRS := /usr/local/lib /usr/lib /usr/lib/x86_64-linux-gnu /usr/lib/x86_64-linux-gnu/hdf5/serial /usr/local/share/OpenCV/3rdparty/lib/
 
 # If Homebrew is installed at a non standard location (for example your home directory) and you use it for general dependencies
 # INCLUDE_DIRS += $(shell brew --prefix)/include

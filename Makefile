@@ -82,7 +82,7 @@ CU_SRCS := $(shell find src ! -name "test_*.cu" -name "*.cu")
 # EXAMPLE_SRCS are the source files for the example binaries
 EXAMPLE_SRCS := $(shell find examples -name "*.cpp")
 # BUILD_INCLUDE_DIR contains any generated header files we want to include.
-BUILD_INCLUDE_DIR := $(BUILD_DIR)/src
+BUILD_INCLUDE_DIR := $(BUILD_DIR)/src oscpack
 # NONGEN_CXX_SRCS includes all source/header files except those generated
 # automatically (e.g., by proto).
 NONGEN_CXX_SRCS := $(shell find \
@@ -138,7 +138,8 @@ ifneq ("$(wildcard $(CUDA_DIR)/lib64)","")
 endif
 CUDA_LIB_DIR += $(CUDA_DIR)/lib
 
-INCLUDE_DIRS += $(BUILD_INCLUDE_DIR) ./src ./include
+INCLUDE_DIRS += $(BUILD_INCLUDE_DIR) ./src ./include ./oscpack ./oscpack/osc ./oscpack/ip
+
 ifeq ($(USE_CUDA), 1)
 	INCLUDE_DIRS += $(CUDA_INCLUDE_DIR)
 	LIBRARY_DIRS += $(CUDA_LIB_DIR)
@@ -338,6 +339,19 @@ ifeq ($(USE_PKG_CONFIG), 1)
 else
 	PKG_CONFIG :=
 endif
+
+# Common source groups
+
+RECEIVESOURCES := oscpack/osc/OscReceivedElements.cpp osc/OscPrintReceivedElements.cpp
+SENDSOURCES := oscpack/osc/OscOutboundPacketStream.cpp
+NETSOURCES := oscpack/ip/posix/UdpSocket.cpp oscpack/ip/IpEndpointName.cpp osip/posix/NetworkingUtils.cpp
+COMMONSOURCES := oscpack/OscTypes.cpp
+
+RECEIVEOBJECTS := $(RECEIVESOURCES:.cpp=.o)
+SENDOBJECTS := $(SENDSOURCES:.cpp=.o)
+NETOBJECTS := $(NETSOURCES:.cpp=.o)
+COMMONOBJECTS := $(COMMONSOURCES:.cpp=.o)
+
 # LDFLAGS += $(foreach librarydir,$(LIBRARY_DIRS),-L$(librarydir)) $(PKG_CONFIG) \
 # 		$(foreach library,$(LIBRARIES),-l$(library)) -Wl,-rpath=$(CAFFE_DIR)/lib
 LDFLAGS += $(foreach librarydir,$(LIBRARY_DIRS),-L$(librarydir)) $(PKG_CONFIG) \
@@ -444,10 +458,29 @@ $(BUILD_DIR)/cuda/%.o: %.cu | $(ALL_BUILD_DIRS)
 		|| (cat $@.$(WARNS_EXT); exit 1)
 	@ cat $@.$(WARNS_EXT)
 
+# Common source groups
+
+RECEIVESOURCES := oscpack/osc/OscReceivedElements.cpp oscpack/osc/OscPrintReceivedElements.cpp
+SENDSOURCES := oscpack/osc/OscOutboundPacketStream.cpp
+NETSOURCES := oscpack/ip/posix/UdpSocket.cpp oscpack/ip/IpEndpointName.cpp oscpack/ip/posix/NetworkingUtils.cpp
+COMMONSOURCES := oscpack/osc/OscTypes.cpp
+
+RECEIVEOBJECTS := $(RECEIVESOURCES:.cpp=.o)
+SENDOBJECTS := $(SENDSOURCES:.cpp=.o)
+NETOBJECTS := $(NETSOURCES:.cpp=.o)
+COMMONOBJECTS := $(COMMONSOURCES:.cpp=.o)
+
+
+#Library objects
+LIBOBJECTS := $(COMMONOBJECTS) $(SENDOBJECTS) $(RECEIVEOBJECTS) $(NETOBJECTS)
+
 $(EXAMPLE_BINS): %.bin : %.o | $(DYNAMIC_NAME)
-	@ echo CXX/LD -o $@
-	$(Q)$(CXX) $< -o $@ $(LINKFLAGS) -l$(LIBRARY_NAME) $(LDFLAGS) \
+	@ echo karli
+	@ echo $(LIBOBJECTS)
+	@ echo CXX/LD -o $@ $(LIBOBJECTS)
+	$(Q)$(CXX) $< -o $@ $(LINKFLAGS) $(LIBOBJECTS) -l$(LIBRARY_NAME) $(LDFLAGS) \
 		-Wl,-rpath,$(ORIGIN)/../../lib
+	@ echo "karli"
 
 clean:
 	@- $(RM) -rf $(ALL_BUILD_DIRS)
