@@ -203,44 +203,31 @@ public:
             UdpTransmitSocket transmitSocket( IpEndpointName( ADDRESS, PORT ) );
             char buffer[OUTPUT_BUFFER_SIZE];
 
-            op::log("\nKeypoints:");
+            //op::log("\nKeypoints:");
             // Accesing each element of the keypoints
             const auto& poseKeypoints = datumsPtr->at(0).poseKeypoints;
-            op::log("Person pose keypoints:");
+            //op::log("Person pose keypoints:");
             for (auto person = 0 ; person < poseKeypoints.getSize(0) ; person++)
             {
-              osc::OutboundPacketStream p( buffer, OUTPUT_BUFFER_SIZE );
-              std::string personStr;
-              personStr =  "/person/" + std::to_string(person) + "/pos";
-              p << osc::BeginBundleImmediate << osc::BeginMessage(personStr.c_str());
+                osc::OutboundPacketStream p( buffer, OUTPUT_BUFFER_SIZE );
+                std::string personStr = "/person/" + std::to_string(person) + "/pos";
+                p << osc::BeginBundleImmediate << osc::BeginMessage(personStr.c_str());
 
-                op::log("Person " + std::to_string(person) + " (x, y, score):");
+                //op::log("Person " + std::to_string(person) + " (x, y, score):");
                 for (auto bodyPart = 0 ; bodyPart < poseKeypoints.getSize(1) ; bodyPart++)
                 {
                     std::string valueToPrint;
-                    //p << bodyPart;
-
                     for (auto xyscore = 0 ; xyscore < poseKeypoints.getSize(2) ; xyscore++)
                     {
                         valueToPrint += std::to_string(   poseKeypoints[{person, bodyPart, xyscore}]   ) + " ";
                         p << poseKeypoints[{person, bodyPart, xyscore}];
                     }
-                    //p << valueToPrint.c_str();
-                    op::log(valueToPrint);
-
-                    /*p << osc::BeginBundleImmediate
-                      << osc::BeginMessage( "/test1" )
-                      << true << 23 << (float)3.1415 << "h" << osc::EndMessage
-                      << osc::BeginMessage( "/test2" )
-                      << true << 24 << (float)10.8 << "w" << osc::EndMessage
-                      << osc::EndBundle;
-                    */
-
+                    //op::log(valueToPrint);
                 }
                 p << osc::EndMessage << osc::EndBundle;
                 transmitSocket.Send( p.Data(), p.Size() );
             }
-            op::log(" ");
+            //op::log(" ");
         }
         else
             op::log("Nullptr or empty datumsPtr found.", op::Priority::High, __LINE__, __FUNCTION__, __FILE__);
