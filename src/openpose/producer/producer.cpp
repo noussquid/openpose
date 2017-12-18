@@ -48,6 +48,8 @@ namespace op
                 frame = getRawFrame();
                 // Flip + rotate frame
                 flipAndRotate(frame);
+                // karli mask area not sophie
+                maskArea(frame);
                 // Check frame integrity
                 checkFrameIntegrity(frame);
                 // Check if video capture did finish and close/restart it
@@ -171,6 +173,27 @@ namespace op
         {
             error(e.what(), __LINE__, __FUNCTION__, __FILE__);
         }
+    }
+
+    // mask added by karli
+    void Producer::maskArea(cv::Mat& frame) const
+    {
+      try
+      {
+          if (!frame.empty())
+          {
+            rectangle(frame, cv::Point(0, 520), cv::Point(1280,0),cv::Scalar(0,0,0), -1);
+
+          }
+          else
+          {
+                error("Rotation video size is not 1280 x 720", __LINE__, __FUNCTION__, __FILE__);
+          }
+      }
+      catch (const std::exception& e)
+      {
+              error(e.what(), __LINE__, __FUNCTION__, __FILE__);
+      }
     }
 
     void Producer::flipAndRotate(cv::Mat& frame) const

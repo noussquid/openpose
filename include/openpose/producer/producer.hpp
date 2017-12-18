@@ -4,6 +4,7 @@
 #include <chrono>
 #include <opencv2/core/core.hpp> // cv::Mat
 #include <opencv2/highgui/highgui.hpp> // capProperties of OpenCV
+#include <opencv2/opencv.hpp> // rectangle 
 #include <openpose/core/common.hpp>
 #include <openpose/producer/enumClasses.hpp>
 
@@ -31,7 +32,7 @@ namespace op
 
         /**
          * Main function of Producer, it retrieves and returns a new frame from the frames producer.
-         * @return cv::Mat with the new frame. 
+         * @return cv::Mat with the new frame.
          */
         cv::Mat getFrame();
 
@@ -120,8 +121,14 @@ namespace op
         void keepDesiredFrameRate();
 
         /**
+         * Protected function which masks out the area of screen we are not interested in
+         *
+         */
+         void maskArea(cv::Mat& cvMat) const;
+
+        /**
          * Function to be defined by its children class. It retrieves and returns a new frame from the frames producer.
-         * @return cv::Mat with the new frame. 
+         * @return cv::Mat with the new frame.
          */
         virtual cv::Mat getRawFrame() = 0;
 
